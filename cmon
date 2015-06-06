@@ -1,0 +1,298 @@
+#!/usr/bin/env python
+
+
+import os
+import sys
+import copy
+import subprocess32 as subprocess
+import threading
+import shutil
+import csv
+import time
+import datetime
+import mimetypes
+import SimpleHTTPServer
+import BaseHTTPServer
+#import SocketServer
+import matplotlib
+matplotlib.use('agg')
+matplotlib.rcParams['font.size'] = 19
+import matplotlib.pyplot as pp
+from matplotlib import dates
+
+# html template
+html = """
+<!doctype html>
+<meta http-equiv="refresh" content="%(iter)s" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<!meta http-equiv="Location" content="/" />
+<meta name="author" content="Sven E. Templer" />
+<head>
+<title>cmon</title>
+<link rel="shortcut icon" type="image/png" href="/cmon-favicon.png"/>
+</head>
+<body>
+<h1>slurm-o-nitor</h1>
+<h3>Info</h3>
+<table>
+	<colgroup><col width="300"><col width="300"><col width="300"><col width="100"></colgroup>
+	<tr bgcolor="#ABABAB">
+	<td>Monitoring</td>
+	<td>Slurm partitions</td>
+	<td>Statistics</td>
+	<td rowspan="5" align="center"><img src="cmon-avatar.png" alt="NA" height=100 width=100 style="vertical-align:middle"></td></tr>
+	<tr bgcolor="#BDBDBD">
+	<td>Started:</td>
+	<td><span style="color:#088A29">hugemem</span></td>
+	<td><span style="color:#0080FF">CPU</span></td></tr>
+	<tr bgcolor="#BDBDBD">
+	<td>%(zero)s</td>
+	<td><span style="color:#FF8000">himem</span></td>
+	<td><span style="color:#FFBF00">RAM</span></td></tr>
+	<tr bgcolor="#BDBDBD">
+	<td>Refreshed:</td>
+	<td><span style="color:#F7FE2E">blade</span></td>
+	<td><span style="color:#DF0101">Swap</span></td></tr>
+	<tr bgcolor="#BDBDBD">
+	<td>%(current)s</td>
+	<td><span style="color:#00BFFF">fastjobs</span></td>
+	<td></td></tr>
+</table>
+<h3>Statistics</h3>
+<table>
+	<tr>
+	<td bgcolor="#088A29">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node01.svg" alt="bioinf-node01" height=160 width=350></td>
+	<td bgcolor="#088A29">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node02.svg" alt="bioinf-node02" height=160 width=350></td>
+	<td bgcolor="#FF8000">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node03.svg" alt="bioinf-node03" height=160 width=350></td>
+	<td bgcolor="#FF8000">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node04.svg" alt="bioinf-node04" height=160 width=350></td></tr>
+	<tr>
+	<td bgcolor="#F7FE2E">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node05.svg" alt="bioinf-node05" height=160 width=350></td>
+	<td bgcolor="#F7FE2E">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node06.svg" alt="bioinf-node06" height=160 width=350></td>
+	<td bgcolor="#F7FE2E">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node07.svg" alt="bioinf-node07" height=160 width=350></td>
+	<td bgcolor="#F7FE2E">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node08.svg" alt="bioinf-node08" height=160 width=350></td></tr>
+	<tr>
+	<td bgcolor="#F7FE2E">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node09.svg" alt="bioinf-node09" height=160 width=350></td>
+	<td bgcolor="#F7FE2E">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node10.svg" alt="bioinf-node10" height=160 width=350></td>
+	<td bgcolor="#F7FE2E">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node11.svg" alt="bioinf-node11" height=160 width=350></td>
+	<td bgcolor="#F7FE2E">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node12.svg" alt="bioinf-node12" height=160 width=350></td></tr>
+	<tr>
+	<td bgcolor="#F7FE2E">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node13.svg" alt="bioinf-node13" height=160 width=350></td>
+	<td bgcolor="#F7FE2E">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node14.svg" alt="bioinf-node14" height=160 width=350></td>
+	<td bgcolor="#F7FE2E">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node15.svg" alt="bioinf-node15" height=160 width=350></td>
+	<td bgcolor="#00BFFF">
+	<img vspace="10" hspace="10" src="/tmp/bioinf-node16.svg" alt="bioinf-node16" height=160 width=350></td></tr>
+</table>
+</body>
+</html>
+"""
+
+bash="""#!/bin/bash
+d=$(date +%Y-%m-%d_%H:%M:%S)
+c=$(mpstat 3 1 | grep all | grep -v Average | awk '{print $3}')
+m=$(free | grep Mem | awk \'{print $3/$2*100}\')
+s=$(free | grep Swap | awk \'{print $3/$2*100}\')
+#echo "$d $c $m $s"
+echo "$c $m $s"
+"""
+
+
+def subprocess_check_output(*popenargs, **kwargs):
+    timeout = kwargs.pop('timeout', None)
+    if 'stdout' in kwargs:
+        raise ValueError('stdout argument not allowed, it will be overridden.')
+    process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs, **kwargs)
+    try:
+        output, unused_err = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        output, unused_err = process.communicate()
+    #raise TimeoutExpired(process.args, timeout, output=output)
+    retcode = process.poll()
+    if retcode:
+        raise subprocess.CalledProcessError(retcode, process.args, output=output)
+    return output
+
+subprocess.check_output = subprocess_check_output
+
+# get cpu load, free mem and swap
+#class Timeout(Exception):
+#	pass
+def get_load(ni, u, slurm):
+	cmd = [ 'ssh', u + '@' + ni, 'bash', pwd + '/tmp/stats' ]
+	if slurm:
+		cmd = [ 'srun', '--nodelist=' + ni, '-p', 'hugemem,himem,blade', '-J', 'slurm-o-nitor', 'bash', pwd + '/tmp/stats' ]
+
+	#stats = subprocess.Popen(
+	#	cmd,
+	#	shell = False,
+	#	stdout = subprocess.PIPE,
+	#	stderr = subprocess.PIPE)
+	#line = stats.stdout.readlines()
+
+	try:
+		line = subprocess.check_output(
+			cmd, 
+			stderr = subprocess.STDOUT, 
+			timeout = 8)
+	except subprocess.CalledProcessError:
+		line = '-1 -1 -1 -1'
+		pass
+	line = time.strftime('%Y-%m-%d_%H:%M:%S ') + line
+	print ni + ': ' + line
+
+	f = open('tmp/' + ni, 'a')
+	if len(line)>0:
+		f.write(line)
+		#f.write(str(line[0]))
+	f.close()
+
+
+# strip load data file
+def get_load_stripped(ni):
+	a = [ 'sed', '-i', '-e :a', "-e", '$q;N;50,$D;ba', 'tmp/' + ni ]
+	subprocess.Popen(a)
+
+
+# function to read values
+def get_load_values(f, c):
+	d = csv.reader(open(f), delimiter = ' ')
+	return [r[c] for r in d]
+
+
+# function to generate an image
+def get_img(ni):
+	ft = 'tmp/' + ni
+	dt = get_load_values(ft, 0)
+	dt = [ datetime.datetime.strptime(i, '%Y-%m-%d_%H:%M:%S') for i in dt ]
+	dl = get_load_values(ft, 1)
+	dl = [float(i) for i in dl]
+	dm = get_load_values(ft, 2)
+	dm = [float(i) for i in dm]
+	ds = get_load_values(ft, 3)
+	ds = [float(i) for i in ds]
+	dx = range(len(dt))
+	fig, ax = pp.subplots(1)
+	fig.set_size_inches(12, 6) # x=4.8 y=1.6
+	ax.set_ylim(0, 100)
+	ax.set_title(ni)
+	ax.set_ylabel('[%]')
+	ax.set_xlabel('Time')
+	ax.fill_between(dt, float(0), dl, facecolor='blue', alpha='.6')
+	ax.plot(dt,dm,color='orange', lw = 5)
+	ax.plot(dt,ds,color='red', lw = 3)
+	fig.autofmt_xdate(rotation=25)
+	ax.xaxis.set_major_formatter(dates.DateFormatter('%H:%M:%S'))
+	#fig.savefig(ft + '.png', dpi=300, format='png')
+	fig.savefig(ft + '.svg', format='svg')
+	pp.close()
+
+
+def get_daemon(n, u, s):
+	print('Started data collecting for nodes:')
+	for ni in n:
+		print('- ' + ni)
+	while 1:
+		if not os.path.exists('tmp'):
+			print('Stopped data collecting')
+			quit()
+		for ni in n:
+			get_load(ni, u, s)
+		for ni in n:
+			get_load_stripped(ni)
+			time.sleep(.4)
+			get_img(ni)
+		time.sleep(10)
+
+
+# function to update the html template
+def html_update():
+	f = open('index.html', 'w')
+	t = time.strftime('%Y-%m-%d %H:%M:%S')
+	f.write(html % { 'iter' : htmli, 'zero' : htmlt0, 'current' : t })
+	f.close()
+	
+
+# extended default do_GET from SimpleHTTPRequestHandler
+# to create 'index.html' file with custom variable values inserted:
+def handler_do_GET(self):
+	html_update()
+	f = self.send_head()
+	if f:
+		try:
+			self.copyfile(f, self.wfile)
+		finally:
+			f.close()
+
+
+# run
+if __name__ == '__main__':
+	
+	global pid
+	pid = os.getpid()
+	global pwd
+	pwd = os.path.realpath('.')
+	global htmli
+	htmli = 20 
+	global htmlt0
+	htmlt0 = time.strftime('%Y-%m-%d %H:%M:%S')
+	
+	handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+	handler.do_GET = handler_do_GET
+	handler.extensions_map['.svg']='image/svg+xml'
+	slurm = True
+	#slurm = False
+	sshid = 'STempler'
+	hostname = "cluster"
+	hostport = 8910
+	nodes = [ 'bioinf-node' + str(i).zfill(2) for i in range(1,17) if not i in [6,12,16] ]
+	if slurm:
+		#nodes = [ 'bioinf-node' + str(i).zfill(2) for i in range(1,17) if not i in [15, 16] ]
+		nodes = [ 'bioinf-node' + str(i).zfill(2) for i in range(1,17) ]
+	#nodes = [ 'bioinf-node05', 'bioinf-node15' ] ### TESTING
+	try:
+		shutil.rmtree('tmp')
+	except:
+		print('')
+	try:
+		os.makedirs('tmp')
+	except:
+		print('Error: could not create folder "tmp"')
+		quit()
+	f = open(pwd + '/tmp/stats', 'w')
+	f.write(bash)
+	f.close()
+	daemon = threading.Thread(target = get_daemon, args = [nodes, sshid, slurm])
+	daemon.start()
+	httpd = BaseHTTPServer.HTTPServer((hostname, hostport), handler)
+	print "Starting webserver at %s:%s" % (hostname, hostport), 'at', time.asctime()
+	try:
+		httpd.serve_forever()
+	except KeyboardInterrupt:
+		pass
+	httpd.server_close()
+	print "Stopped webserver %s:%s" % (hostname, hostport), 'at', time.asctime()
+	try:
+		shutil.rmtree('tmp')
+	except:
+		print('')
+	try:
+		os.remove('index.html')
+	except:
+		print('')
+
+### EOF

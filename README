@@ -1,0 +1,10 @@
+# cmon a.k.a. slurm-o-nitor - a slurm cluster load monitor
+#
+# Copyright (c) Sven E. Templer 2015
+
+check 'slurm' variable in 'cmon' (False for ssh queries)
+run './cmon' to start
+
+# Issue when using module to change python path
+# solved by the following:
+export PYTHONUSERBASE="$HOME/.local"
