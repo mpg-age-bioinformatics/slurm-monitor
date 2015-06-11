@@ -43,19 +43,19 @@ html = """
 	<td rowspan="5" align="center"><img src="cmon-avatar.png" alt="NA" height=100 width=100 style="vertical-align:middle"></td></tr>
 	<tr bgcolor="#BDBDBD">
 	<td>Started:</td>
-	<td><span style="color:#088A29">hugemem</span></td>
-	<td><span style="color:#0080FF">CPU</span></td></tr>
+	<td bgcolor="#088A29">hugemem</td>
+	<td bgcolor="#0080FF">CPU</td></tr>
 	<tr bgcolor="#BDBDBD">
 	<td>%(zero)s</td>
-	<td><span style="color:#FF8000">himem</span></td>
-	<td><span style="color:#FFBF00">RAM</span></td></tr>
+	<td bgcolor="#FF8000">himem</td>
+	<td bgcolor="#FFBF00">RAM</td></tr>
 	<tr bgcolor="#BDBDBD">
 	<td>Refreshed:</td>
-	<td><span style="color:#F7FE2E">blade</span></td>
-	<td><span style="color:#DF0101">Swap</span></td></tr>
+	<td bgcolor="#F7FE2E">blade</td>
+	<td bgcolor="#DF0101">Swap</td></tr>
 	<tr bgcolor="#BDBDBD">
 	<td>%(current)s</td>
-	<td><span style="color:#00BFFF">fastjobs</span></td>
+	<td></td>
 	<td></td></tr>
 </table>
 <h3>Statistics</h3>
@@ -94,7 +94,7 @@ html = """
 	<img vspace="10" hspace="10" src="/tmp/bioinf-node14.svg" alt="bioinf-node14" height=160 width=350></td>
 	<td bgcolor="#F7FE2E">
 	<img vspace="10" hspace="10" src="/tmp/bioinf-node15.svg" alt="bioinf-node15" height=160 width=350></td>
-	<td bgcolor="#00BFFF">
+	<td bgcolor="#F7FE2E">
 	<img vspace="10" hspace="10" src="/tmp/bioinf-node16.svg" alt="bioinf-node16" height=160 width=350></td></tr>
 </table>
 </body>
@@ -247,7 +247,7 @@ if __name__ == '__main__':
 	global pwd
 	pwd = os.path.realpath('.')
 	global htmli
-	htmli = 20 
+	htmli = 60 
 	global htmlt0
 	htmlt0 = time.strftime('%Y-%m-%d %H:%M:%S')
 	
@@ -261,7 +261,7 @@ if __name__ == '__main__':
 	hostport = 8910
 	nodes = [ 'bioinf-node' + str(i).zfill(2) for i in range(1,17) if not i in [6,12,16] ]
 	if slurm:
-		#nodes = [ 'bioinf-node' + str(i).zfill(2) for i in range(1,17) if not i in [15, 16] ]
+		#nodes = [ 'bioinf-node' + str(i).zfill(2) for i in range(1,17) if not i in [15] ]
 		nodes = [ 'bioinf-node' + str(i).zfill(2) for i in range(1,17) ]
 	#nodes = [ 'bioinf-node05', 'bioinf-node15' ] ### TESTING
 	try:
