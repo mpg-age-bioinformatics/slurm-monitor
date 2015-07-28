@@ -16,3 +16,4 @@
 * slurm job counts
 * total load
 * rstudio/redmine/gitlab/slurmd/munged status
+* configurable xlim (time span) for load graphs
