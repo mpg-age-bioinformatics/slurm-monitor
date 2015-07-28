@@ -28,8 +28,8 @@ html = """
 <!meta http-equiv="Location" content="/" />
 <meta name="author" content="Sven E. Templer" />
 <head>
-<title>cmon</title>
-<link rel="shortcut icon" type="image/png" href="/cmon-favicon.png"/>
+<title>slurmOnitor</title>
+<link rel="shortcut icon" type="image/png" href="/slurmOnitor-favicon.png"/>
 </head>
 <body>
 <h1>slurmOnitor</h1>
@@ -40,7 +40,7 @@ html = """
 	<td>Monitoring</td>
 	<td>Slurm partitions</td>
 	<td>Statistics</td>
-	<td rowspan="5" align="center"><img src="cmon-avatar.png" alt="NA" height=100 width=100 style="vertical-align:middle"></td></tr>
+	<td rowspan="5" align="center"><img src="slurmOnitor-avatar.png" alt="NA" height=100 width=100 style="vertical-align:middle"></td></tr>
 	<tr bgcolor="#BDBDBD">
 	<td>Started:</td>
 	<td bgcolor="#088A29">hugemem</td>
