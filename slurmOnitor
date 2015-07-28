@@ -153,7 +153,8 @@ def get_load(ni, u, slurm):
     line = '-1 -1 -1 -1'
     pass
   line = time.strftime('%Y-%m-%d_%H:%M:%S ') + line
-  print ni + ': ' + line
+  #print ni + ': ' + line[:-1]
+  print ni + ': ' + line.rstrip("\n")
 
   f = open('tmp/' + ni, 'a')
   if len(line)>0:
