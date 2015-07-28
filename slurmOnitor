@@ -254,8 +254,7 @@ if __name__ == '__main__':
 	handler = SimpleHTTPServer.SimpleHTTPRequestHandler
 	handler.do_GET = handler_do_GET
 	handler.extensions_map['.svg']='image/svg+xml'
-	slurm = True
-	#slurm = False
+	slurm = False
 	sshid = 'STempler'
 	hostname = "cluster"
 	hostport = 8910
