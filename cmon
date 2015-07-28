@@ -32,7 +32,7 @@ html = """
 <link rel="shortcut icon" type="image/png" href="/cmon-favicon.png"/>
 </head>
 <body>
-<h1>slurm-o-nitor</h1>
+<h1>slurmOnitor</h1>
 <h3>Info</h3>
 <table>
 	<colgroup><col width="300"><col width="300"><col width="300"><col width="100"></colgroup>
@@ -135,7 +135,7 @@ subprocess.check_output = subprocess_check_output
 def get_load(ni, u, slurm):
 	cmd = [ 'ssh', u + '@' + ni, 'bash', pwd + '/tmp/stats' ]
 	if slurm:
-		cmd = [ 'srun', '--nodelist=' + ni, '-p', 'hugemem,himem,blade', '-J', 'slurm-o-nitor', 'bash', pwd + '/tmp/stats' ]
+		cmd = [ 'srun', '--nodelist=' + ni, '-p', 'hugemem,himem,blade', '-J', 'slurmOnitor', 'bash', pwd + '/tmp/stats' ]
 
 	#stats = subprocess.Popen(
 	#	cmd,
