@@ -28,80 +28,72 @@ html = """
 <!meta http-equiv="Location" content="/" />
 <meta name="author" content="Sven E. Templer" />
 <head>
-<title>slurmOnitor</title>
-<link rel="shortcut icon" type="image/png" href="/slurmOnitor-favicon.png"/>
+  <title>slurmOnitor</title>
+  <link rel="shortcut icon" type="image/png" href="/slurmOnitor-favicon.png"/>
+  <style>
+    html { box-sizing: border-box; }
+    *,::before,::after { box-sizing: inherit; }
+    body { width: 96%%; font-family: sans-serif; color: #333333; margin: 15px; vertical-align: middle; }
+    header,nav,main { border-radius: 0.5em 0.5em 0.5em; border: 1px solid; margin: 5px; padding: 5px; }
+    header { height: 90px; }
+    header img { height: 80px; width: 80px; float: right;
+      border:0px solid; -webkit-border-radius: 20px; -moz-border-radius: 20px; border-radius: 20px; }
+    main img { height: 160px; width: 300px; margin: 5px; }
+    nav { float: left; width: 200px; background: #fffbf0; border-color: #e7c157; margin-top: 0px; }
+    nav li { list-style: circle; margin: 5px; }
+    main { display: block; background: #c4ced3; border-color: #8a9da8; margin-left: 210px; margin-top: 5px; }
+  </style>
 </head>
+
 <body>
-<h1>slurmOnitor</h1>
-<h3>Info</h3>
-<table>
-  <colgroup><col width="300"><col width="300"><col width="300"><col width="100"></colgroup>
-  <tr bgcolor="#ABABAB">
-  <td>Monitoring</td>
-  <td>Slurm partitions</td>
-  <td>Statistics</td>
-  <td rowspan="5" align="center"><img src="slurmOnitor-avatar.png" alt="NA" height=100 width=100 style="vertical-align:middle"></td></tr>
-  <tr bgcolor="#BDBDBD">
-  <td>Started:</td>
-  <td bgcolor="#088A29">hugemem</td>
-  <td bgcolor="#0080FF">CPU</td></tr>
-  <tr bgcolor="#BDBDBD">
-  <td>%(zero)s</td>
-  <td bgcolor="#FF8000">himem</td>
-  <td bgcolor="#FFBF00">RAM</td></tr>
-  <tr bgcolor="#BDBDBD">
-  <td>Refreshed:</td>
-  <td bgcolor="#F7FE2E">blade</td>
-  <td bgcolor="#DF0101">Swap</td></tr>
-  <tr bgcolor="#BDBDBD">
-  <td>%(current)s</td>
-  <td></td>
-  <td></td></tr>
-</table>
-<h3>Statistics</h3>
-<table>
-  <tr>
-  <td bgcolor="#088A29">
-  <img vspace="10" hspace="10" src="bioinf-node01.svg" alt="bioinf-node01" height=160 width=350></td>
-  <td bgcolor="#088A29">
-  <img vspace="10" hspace="10" src="bioinf-node02.svg" alt="bioinf-node02" height=160 width=350></td>
-  <td bgcolor="#FF8000">
-  <img vspace="10" hspace="10" src="bioinf-node03.svg" alt="bioinf-node03" height=160 width=350></td>
-  <td bgcolor="#FF8000">
-  <img vspace="10" hspace="10" src="bioinf-node04.svg" alt="bioinf-node04" height=160 width=350></td></tr>
-  <tr>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node05.svg" alt="bioinf-node05" height=160 width=350></td>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node06.svg" alt="bioinf-node06" height=160 width=350></td>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node07.svg" alt="bioinf-node07" height=160 width=350></td>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node08.svg" alt="bioinf-node08" height=160 width=350></td></tr>
-  <tr>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node09.svg" alt="bioinf-node09" height=160 width=350></td>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node10.svg" alt="bioinf-node10" height=160 width=350></td>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node11.svg" alt="bioinf-node11" height=160 width=350></td>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node12.svg" alt="bioinf-node12" height=160 width=350></td></tr>
-  <tr>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node13.svg" alt="bioinf-node13" height=160 width=350></td>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node14.svg" alt="bioinf-node14" height=160 width=350></td>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node15.svg" alt="bioinf-node15" height=160 width=350></td>
-  <td bgcolor="#F7FE2E">
-  <img vspace="10" hspace="10" src="bioinf-node16.svg" alt="bioinf-node16" height=160 width=350></td></tr>
-</table>
+
+<header>
+  <img src="slurmOnitor-avatar.png">
+  <h1>slurmOnitor 
+  </h1>
+</header>
+
+<nav>
+  <h2>Monitoring</h2>
+  <ul>
+  <li>Stats:</br>3|1 sec|counts</li>
+  <li>Cycle:</br>30 sec</li>
+  <li>Started:</br>%(zero)s</li>
+  <li>Refreshed:</br>%(current)s</br>(%(iter)s sec auto)</li>
+  </ul>
+  <h2>Values</h2>
+  <ul>
+  <li><font color="#0080FF">CPU</font></li>
+  <li><font color="#FFBF00">RAM</font></li>
+  <li><font color="#DF0101">Swap</font></li>
+  </ul>
+</nav>
+
+<main>
+  <h2>Load</h2>
+  <img src="bioinf-node01.svg" alt="bioinf-node01">
+  <img src="bioinf-node02.svg" alt="bioinf-node02">
+  <img src="bioinf-node03.svg" alt="bioinf-node03">
+  <img src="bioinf-node04.svg" alt="bioinf-node04">
+  <img src="bioinf-node05.svg" alt="bioinf-node05">
+  <img src="bioinf-node06.svg" alt="bioinf-node06">
+  <img src="bioinf-node07.svg" alt="bioinf-node07">
+  <img src="bioinf-node08.svg" alt="bioinf-node08">
+  <img src="bioinf-node09.svg" alt="bioinf-node09">
+  <img src="bioinf-node10.svg" alt="bioinf-node10">
+  <img src="bioinf-node11.svg" alt="bioinf-node11">
+  <img src="bioinf-node12.svg" alt="bioinf-node12">
+  <img src="bioinf-node13.svg" alt="bioinf-node13">
+  <img src="bioinf-node14.svg" alt="bioinf-node14">
+  <img src="bioinf-node15.svg" alt="bioinf-node15">
+  <img src="bioinf-node16.svg" alt="bioinf-node16">
+</main>
+
 </body>
 </html>
 """
 
-bash="""#!/bin/bash
+bash = """#!/bin/bash
 d=$(date +%Y-%m-%d_%H:%M:%S)
 c=$(mpstat 3 1 | grep all | grep -v Average | awk '{print $3}')
 m=$(free | grep Mem | awk \'{print $3/$2*100}\')
