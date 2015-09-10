@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 import os
 import sys
 import copy
@@ -34,13 +33,14 @@ html = """
     html { box-sizing: border-box; }
     *,::before,::after { box-sizing: inherit; }
     body { width: 96%%; font-family: sans-serif; color: #333333; margin: 15px; vertical-align: middle; }
-    header,nav,main { border-radius: 0.5em 0.5em 0.5em; border: 1px solid; margin: 5px; padding: 5px; }
+    header,nav,main { border-radius: 0.5em 0.5em 0.5em; border: 1px solid; margin: 5px; padding: 5px;
+      text-align: center; }
     header { height: 90px; }
     header img { height: 80px; width: 80px; float: right;
       border:0px solid; -webkit-border-radius: 20px; -moz-border-radius: 20px; border-radius: 20px; }
     main img { height: 160px; width: 300px; margin: 5px; }
     nav { float: left; width: 200px; background: #fffbf0; border-color: #e7c157; margin-top: 0px; }
-    nav li { list-style: circle; margin: 5px; }
+    nav li { list-style: circle; margin: 5px; text-align: left; }
     main { display: block; background: #c4ced3; border-color: #8a9da8; margin-left: 210px; margin-top: 5px; }
   </style>
 </head>
@@ -166,7 +166,6 @@ def get_slurmqueue ():
   npend = len([i for i in jobs if i == "PENDING"])
   nrun  = len([i for i in jobs if i == "RUNNING"])
   return str(nrun) + '/' + str(npend)
-
 
 
 # strip load data file
