@@ -60,6 +60,7 @@ html = """
   <li>Cycle:</br>30 sec</li>
   <li>Started:</br>%(zero)s</li>
   <li>Refreshed:</br>%(current)s</br>(%(iter)s sec auto)</li>
+  <li>Slurm queue:</br>%(queue)s (run/pend)</li>
   </ul>
   <h2>Values</h2>
   <ul>
@@ -154,6 +155,19 @@ def get_load(ni, u, slurm):
     #f.write(str(line[0]))
   f.close()
 
+def get_slurmqueue ():
+  cmd = [ 'squeue', '-o', '%T' ]
+  try:
+    jobs = subprocess.check_output(cmd, stderr = subprocess.STDOUT, timeout = 3)
+  except:
+    jobs = ['STATE\n']
+    pass
+  jobs = jobs.split('\n')
+  npend = len([i for i in jobs if i == "PENDING"])
+  nrun  = len([i for i in jobs if i == "RUNNING"])
+  return str(nrun) + '/' + str(npend)
+
+
 
 # strip load data file
 def get_load_stripped(ni):
@@ -215,8 +229,9 @@ def get_daemon(n, u, s):
 # function to update the html template
 def html_update():
   f = open('index.html', 'w')
+  q = get_slurmqueue()
   t = time.strftime('%Y-%m-%d %H:%M:%S')
-  f.write(html % { 'iter' : htmli, 'zero' : htmlt0, 'current' : t })
+  f.write(html % { 'iter' : htmli, 'zero' : htmlt0, 'current' : t, 'queue' : q })
   f.close()
   
 
