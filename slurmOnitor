@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 import os
 import sys
 import copy
@@ -12,6 +13,7 @@ import datetime
 import mimetypes
 import SimpleHTTPServer
 import BaseHTTPServer
+import urlparse
 #import SocketServer
 import matplotlib
 matplotlib.use('agg')
@@ -19,8 +21,51 @@ matplotlib.rcParams['font.size'] = 19
 import matplotlib.pyplot as pp
 from matplotlib import dates
 
+
+global g_pid    # process id
+global g_pwd    # present directory
+global g_swd    # server directory
+global g_html_iter  # hmtl content: refresh interval
+global g_html_t0 # html content: server start time
+global g_plotrange # url value: plot range [def 60]
+global g_html   # index.html template
+global g_bash   # load query bash script
+global g_nodes  # node list
+global g_sleep  # sleep between load queries
+global g_sshid
+global g_slurm
+
+
+# load environment variables  
+g_pid = os.getpid()
+g_pwd = os.path.realpath('.')
+g_swd = os.getenv("HOME")
+g_swd = g_swd + '/.slurmOnitor/' + str(g_pid)
+g_slurm = False
+g_sshid = 'STempler'
+g_hostname = "cluster"
+g_hostport = 8910
+g_html_iter = 60 
+g_html_t0 = time.strftime('%Y-%m-%d %H:%M:%S')
+g_sleep = 60
+g_nodes = [ 'bioinf-node' + str(i).zfill(2) for i in range(1,17) ]
+# if not i in [15]
+#g_nodes = [ 'bioinf-node05', 'bioinf-node15' ] ### TESTING
+
+
+# load query
+g_bash = """#!/bin/bash
+d=$(date +%Y-%m-%d_%H:%M:%S)
+c=$(mpstat 3 1 | grep all | grep -v Average | awk '{print $3}')
+m=$(free | grep Mem | awk \'{print $3/$2*100}\')
+s=$(free | grep Swap | awk \'{print $3/$2*100}\')
+#echo "$d $c $m $s"
+echo "$c $m $s"
+"""
+
+
 # html template
-html = """
+g_html = """
 <!doctype html>
 <meta http-equiv="refresh" content="%(iter)s" />
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -72,6 +117,8 @@ html = """
 
 <main>
   <h2>Load</h2>
+  %(imgnodes)s
+  <!--
   <img src="bioinf-node01.svg" alt="bioinf-node01">
   <img src="bioinf-node02.svg" alt="bioinf-node02">
   <img src="bioinf-node03.svg" alt="bioinf-node03">
@@ -88,22 +135,16 @@ html = """
   <img src="bioinf-node14.svg" alt="bioinf-node14">
   <img src="bioinf-node15.svg" alt="bioinf-node15">
   <img src="bioinf-node16.svg" alt="bioinf-node16">
+  -->
 </main>
 
 </body>
 </html>
 """
 
-bash = """#!/bin/bash
-d=$(date +%Y-%m-%d_%H:%M:%S)
-c=$(mpstat 3 1 | grep all | grep -v Average | awk '{print $3}')
-m=$(free | grep Mem | awk \'{print $3/$2*100}\')
-s=$(free | grep Swap | awk \'{print $3/$2*100}\')
-#echo "$d $c $m $s"
-echo "$c $m $s"
-"""
 
-
+# redefine check_output of subprocess class
+# to return output
 def subprocess_check_output(*popenargs, **kwargs):
     timeout = kwargs.pop('timeout', None)
     if 'stdout' in kwargs:
@@ -120,36 +161,30 @@ def subprocess_check_output(*popenargs, **kwargs):
         raise subprocess.CalledProcessError(retcode, process.args, output=output)
     return output
 
-subprocess.check_output = subprocess_check_output
-
 # get cpu load, free mem and swap
 #class Timeout(Exception):
 #  pass
-def get_load(ni, u, slurm):
-  cmd = [ 'ssh', u + '@' + ni, 'bash', swd + '/slurmOnitor-stats' ]
-  if slurm:
-    cmd = [ 'srun', '--nodelist=' + ni, '-p', 'hugemem,himem,blade', '-J', 'slurmOnitor', 'bash', swd + '/slurmOnitor-stats' ]
-
+def get_load(node):
+  cmd = [ 'ssh', g_sshid + '@' + node, 'bash', g_swd + '/slurmOnitor-stats' ]
+  if g_slurm:
+    cmd = [ 'srun', '--nodelist=' + node, '-p', 'hugemem,himem,blade', '-J', 
+        'slurmOnitor', 'bash', g_swd + '/slurmOnitor-stats' ]
   #stat = subprocess.Popen(
   #  cmd,
   #  shell = False,
   #  stdout = subprocess.PIPE,
   #  stderr = subprocess.PIPE)
   #line = stat.stdout.readlines()
-
   try:
     line = subprocess.check_output(
-      cmd, 
-      stderr = subprocess.STDOUT, 
-      timeout = 8)
+      cmd, stderr = subprocess.STDOUT, timeout = 8)
   except subprocess.CalledProcessError:
     line = '-1 -1 -1 -1'
     pass
   line = time.strftime('%Y-%m-%d_%H:%M:%S ') + line
-  #print ni + ': ' + line[:-1]
-  print ni + ': ' + line.rstrip("\n")
-
-  f = open(ni, 'a')
+  #print node + ': ' + line[:-1]
+  print node + ': ' + line.rstrip("\n")
+  f = open(node, 'a')
   if len(line)>0:
     f.write(line)
     #f.write(str(line[0]))
@@ -169,33 +204,32 @@ def get_slurmqueue ():
 
 
 # strip load data file
-def get_load_stripped(ni):
-  a = [ 'sed', '-i', '-e :a', "-e", '$q;N;50,$D;ba', ni ]
-  subprocess.Popen(a)
+def get_load_stripped(node):
+  cmd = [ 'sed', '-i', '-e :a', "-e", '$q;N;50,$D;ba', node ]
+  subprocess.Popen(cmd)
 
-
-# function to read values
-def get_load_values(f, c):
-  d = csv.reader(open(f), delimiter = ' ')
-  return [r[c] for r in d]
 
 
 # function to generate an image
-def get_img(ni):
-  ft = swd + '/' + ni
-  dt = get_load_values(ft, 0)
-  dt = [ datetime.datetime.strptime(i, '%Y-%m-%d_%H:%M:%S') for i in dt ]
-  dl = get_load_values(ft, 1)
-  dl = [float(i) for i in dl]
-  dm = get_load_values(ft, 2)
-  dm = [float(i) for i in dm]
-  ds = get_load_values(ft, 3)
-  ds = [float(i) for i in ds]
+def get_img(node):
+  ft = g_swd + '/' + node
+  d = csv.reader(open(ft), delimiter = ' ')
+  dt = [] # time
+  dl = [] # cpu load
+  dm = [] # mem load
+  ds = [] # swap load
+  for row in d:
+    dt.append(datetime.datetime.strptime(row[0], '%Y-%m-%d_%H:%M:%S'))
+    dl.append(float(row[1]))
+    dm.append(float(row[2]))
+    ds.append(float(row[3]))
+  i0 = len
+
   dx = range(len(dt))
   fig, ax = pp.subplots(1)
   fig.set_size_inches(12, 6) # x=4.8 y=1.6
   ax.set_ylim(0, 100)
-  ax.set_title(ni)
+  ax.set_title(node)
   ax.set_ylabel('[%]')
   ax.set_xlabel('Time')
   ax.fill_between(dt, float(0), dl, facecolor='blue', alpha='.6')
@@ -208,21 +242,20 @@ def get_img(ni):
   pp.close()
 
 
-def get_daemon(n, u, s):
+# function to query all nodes and prepare data (tables and images)
+def get_daemon():
   print('Started collecting data for nodes:')
-  for ni in n:
-    print('- ' + ni)
+  print(', '.join(g_nodes))
   while 1:
-    if not os.path.exists(swd):
+    if not os.path.exists(g_swd):
       print('Stopped collecting data')
       quit()
-    for ni in n:
-      get_load(ni, u, s)
-    for ni in n:
-      get_load_stripped(ni)
-      time.sleep(.4)
-      get_img(ni)
-    time.sleep(30)
+    for node in g_nodes:
+      get_load(node)
+      get_load_stripped(node)
+      time.sleep(.5)
+      get_img(node)
+    time.sleep(g_sleep)
 
 
 # function to update the html template
@@ -230,13 +263,19 @@ def html_update():
   f = open('index.html', 'w')
   q = get_slurmqueue()
   t = time.strftime('%Y-%m-%d %H:%M:%S')
-  f.write(html % { 'iter' : htmli, 'zero' : htmlt0, 'current' : t, 'queue' : q })
+  n = [ '<img src="' + i + '.svg" alt="' + i + '">' for i in g_nodes ]
+  n = '\n'.join(n)
+  f.write(g_html % { 
+    'iter' : g_html_iter, 'zero' : g_html_t0, 'current' : t, 
+    'queue' : q, 'imgnodes' : n })
   f.close()
   
 
 # extended default do_GET from SimpleHTTPRequestHandler
 # to create 'index.html' file with custom variable values inserted:
 def handler_do_GET(self):
+  g_plotrange = urlparse.parse_qs(
+      urlparse.urlparse(self.path).query).get('r', 60)
   html_update()
   f = self.send_head()
   if f:
@@ -248,75 +287,53 @@ def handler_do_GET(self):
 
 # run
 if __name__ == '__main__':
-
-  # load environment variables  
-  global pid
-  pid = os.getpid()
-  global pwd
-  pwd = os.path.realpath('.')
-  global swd
-  swd = os.getenv("HOME")
-  swd = swd + '/.slurmOnitor/' + str(pid)
-  global htmli
-  htmli = 60 
-  global htmlt0
-  htmlt0 = time.strftime('%Y-%m-%d %H:%M:%S')
-  slurm = False
-  sshid = 'STempler'
-  hostname = "cluster"
-  hostport = 8910
-  nodes = [ 'bioinf-node' + str(i).zfill(2) for i in range(1,17) ]
-  #nodes = [ 'bioinf-node05', 'bioinf-node15' ] ### TESTING
-  if slurm:
-    nodes = [ 'bioinf-node' + str(i).zfill(2) for i in range(1,17) ] #  if not i in [15]
-  
-  # define http server
+  # define http server and subprocess
   handler = SimpleHTTPServer.SimpleHTTPRequestHandler
   handler.do_GET = handler_do_GET
   handler.extensions_map['.svg']='image/svg+xml'
-
+  subprocess.check_output = subprocess_check_output
   # create selected working directory
   try:
-    shutil.rmtree(swd)
+    shutil.rmtree(g_swd)
   except:
-    print('')
+    print('Warning: could not remove server directory ' + g_swd)
   try:
-    os.makedirs(swd)
+    os.makedirs(g_swd)
   except:
-    print('Error: could not create working directory ' + swd)
+    print('Error: could not create working directory ' + g_swd)
     quit()
-  shutil.copy(pwd + '/slurmOnitor-favicon.png', swd) 
-  shutil.copy(pwd + '/slurmOnitor-avatar.png', swd) 
+  shutil.copy(g_pwd + '/slurmOnitor-favicon.png', g_swd) 
+  shutil.copy(g_pwd + '/slurmOnitor-avatar.png', g_swd) 
   try:
-    os.chdir(swd)
-    print('Changed to working directory ' + swd)
+    os.chdir(g_swd)
+    print('Changed to working directory ' + g_swd)
   except:
-    print('Error: could not change to working directory ' + swd)
+    print('Error: could not change to working directory ' + g_swd)
     quit()
+  # write load query script
   f = open('slurmOnitor-stats', 'w')
-  f.write(bash)
+  f.write(g_bash)
   f.close()
-
   # start httpd daemon
-  daemon = threading.Thread(target = get_daemon, args = [nodes, sshid, slurm])
+  #daemon = threading.Thread(target = get_daemon, args = [g_nodes, g_sshid, g_slurm])
+  daemon = threading.Thread(target = get_daemon)
   daemon.start()
-  httpd = BaseHTTPServer.HTTPServer((hostname, hostport), handler)
-  print "Starting webserver at %s:%s" % (hostname, hostport), 'at', time.asctime()
+  httpd = BaseHTTPServer.HTTPServer((g_hostname, g_hostport), handler)
+  print "Starting webserver at %s:%s" % (g_hostname, g_hostport), 'at', time.asctime()
   try:
     httpd.serve_forever()
   except KeyboardInterrupt:
     pass
-
   # close server and remove working directory
   httpd.server_close()
-  print "Stopped webserver %s:%s" % (hostname, hostport), 'at', time.asctime()
+  print "Stopped webserver %s:%s" % (g_hostname, g_hostport), 'at', time.asctime()
   try:
-    shutil.rmtree(swd)
+    shutil.rmtree(g_swd)
   except:
-    print('')
+    print('Warning: could not remove server directory ' + g_swd)
   try:
     os.remove('index.html')
   except:
-    print('')
+    print('Warning: could not remove index.html')
 
 ### EOF
