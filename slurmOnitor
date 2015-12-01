@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 import os
 import sys
 import copy
@@ -20,131 +19,13 @@ matplotlib.use('agg')
 matplotlib.rcParams['font.size'] = 19
 import matplotlib.pyplot as pp
 from matplotlib import dates
+import argparse
 
+global tstart
+global nodes
 
-global g_pid    # process id
-global g_pwd    # present directory
-global g_swd    # server directory
-global g_html_iter  # hmtl content: refresh interval
-global g_html_t0 # html content: server start time
-global g_plotrange # url value: plot range [def 60]
-global g_html   # index.html template
-global g_bash   # load query bash script
-global g_nodes  # node list
-global g_sleep  # sleep between load queries
-global g_sshid
-global g_slurm
-
-
-# load environment variables  
-g_pid = os.getpid()
-g_pwd = os.path.realpath('.')
-g_swd = os.getenv("HOME")
-g_swd = g_swd + '/.slurmOnitor/' + str(g_pid)
-g_slurm = False
-g_sshid = 'STempler'
-g_hostname = "cluster"
-g_hostport = 8910
-g_html_iter = 60 
-g_html_t0 = time.strftime('%Y-%m-%d %H:%M:%S')
-g_sleep = 60
-g_nodes = [ 'bioinf-node' + str(i).zfill(2) for i in range(1,17) ]
-# if not i in [15]
-#g_nodes = [ 'bioinf-node05', 'bioinf-node15' ] ### TESTING
-
-
-# load query
-g_bash = """#!/bin/bash
-d=$(date +%Y-%m-%d_%H:%M:%S)
-c=$(mpstat 3 1 | grep all | grep -v Average | awk '{print $3}')
-m=$(free | grep Mem | awk \'{print $3/$2*100}\')
-s=$(free | grep Swap | awk \'{print $3/$2*100}\')
-#echo "$d $c $m $s"
-echo "$c $m $s"
-"""
-
-
-# html template
-g_html = """
-<!doctype html>
-<meta http-equiv="refresh" content="%(iter)s" />
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<!meta http-equiv="Location" content="/" />
-<meta name="author" content="Sven E. Templer" />
-<head>
-  <title>slurmOnitor</title>
-  <link rel="shortcut icon" type="image/png" href="/slurmOnitor-favicon.png"/>
-  <style>
-    html { box-sizing: border-box; }
-    *,::before,::after { box-sizing: inherit; }
-    body { width: 96%%; font-family: sans-serif; color: #333333; margin: 15px; vertical-align: middle; }
-    header,nav,main { border-radius: 0.5em 0.5em 0.5em; border: 1px solid; margin: 5px; padding: 5px;
-      text-align: center; }
-    header { height: 90px; }
-    header img { height: 80px; width: 80px; float: right;
-      border:0px solid; -webkit-border-radius: 20px; -moz-border-radius: 20px; border-radius: 20px; }
-    main img { height: 160px; width: 300px; margin: 5px; }
-    nav { float: left; width: 200px; background: #fffbf0; border-color: #e7c157; margin-top: 0px; }
-    nav li { list-style: circle; margin: 5px; text-align: left; }
-    main { display: block; background: #c4ced3; border-color: #8a9da8; margin-left: 210px; margin-top: 5px; }
-  </style>
-</head>
-
-<body>
-
-<header>
-  <img src="slurmOnitor-avatar.png">
-  <h1>slurmOnitor 
-  </h1>
-</header>
-
-<nav>
-  <h2>Monitoring</h2>
-  <ul>
-  <li>Stats:</br>3|1 sec|counts</li>
-  <li>Cycle:</br>30 sec</li>
-  <li>Started:</br>%(zero)s</li>
-  <li>Refreshed:</br>%(current)s</br>(%(iter)s sec auto)</li>
-  <li>Slurm queue:</br>%(queue)s (run/pend)</li>
-  </ul>
-  <h2>Values</h2>
-  <ul>
-  <li><font color="#0080FF">CPU</font></li>
-  <li><font color="#FFBF00">RAM</font></li>
-  <li><font color="#DF0101">Swap</font></li>
-  </ul>
-</nav>
-
-<main>
-  <h2>Load</h2>
-  %(imgnodes)s
-  <!--
-  <img src="bioinf-node01.svg" alt="bioinf-node01">
-  <img src="bioinf-node02.svg" alt="bioinf-node02">
-  <img src="bioinf-node03.svg" alt="bioinf-node03">
-  <img src="bioinf-node04.svg" alt="bioinf-node04">
-  <img src="bioinf-node05.svg" alt="bioinf-node05">
-  <img src="bioinf-node06.svg" alt="bioinf-node06">
-  <img src="bioinf-node07.svg" alt="bioinf-node07">
-  <img src="bioinf-node08.svg" alt="bioinf-node08">
-  <img src="bioinf-node09.svg" alt="bioinf-node09">
-  <img src="bioinf-node10.svg" alt="bioinf-node10">
-  <img src="bioinf-node11.svg" alt="bioinf-node11">
-  <img src="bioinf-node12.svg" alt="bioinf-node12">
-  <img src="bioinf-node13.svg" alt="bioinf-node13">
-  <img src="bioinf-node14.svg" alt="bioinf-node14">
-  <img src="bioinf-node15.svg" alt="bioinf-node15">
-  <img src="bioinf-node16.svg" alt="bioinf-node16">
-  -->
-</main>
-
-</body>
-</html>
-"""
-
-
-# redefine check_output of subprocess class
-# to return output
+### output from subprocess
+# function 'check_output' redefined to enable the returning of output
 def subprocess_check_output(*popenargs, **kwargs):
     timeout = kwargs.pop('timeout', None)
     if 'stdout' in kwargs:
@@ -161,35 +42,91 @@ def subprocess_check_output(*popenargs, **kwargs):
         raise subprocess.CalledProcessError(retcode, process.args, output=output)
     return output
 
-# get cpu load, free mem and swap
-#class Timeout(Exception):
-#  pass
-def get_load(node):
-  cmd = [ 'ssh', g_sshid + '@' + node, 'bash', g_swd + '/slurmOnitor-stats' ]
-  if g_slurm:
-    cmd = [ 'srun', '--nodelist=' + node, '-p', 'hugemem,himem,blade', '-J', 
-        'slurmOnitor', 'bash', g_swd + '/slurmOnitor-stats' ]
-  #stat = subprocess.Popen(
-  #  cmd,
-  #  shell = False,
-  #  stdout = subprocess.PIPE,
-  #  stderr = subprocess.PIPE)
-  #line = stat.stdout.readlines()
-  try:
-    line = subprocess.check_output(
-      cmd, stderr = subprocess.STDOUT, timeout = 8)
-  except subprocess.CalledProcessError:
-    line = '-1 -1 -1 -1'
-    pass
-  line = time.strftime('%Y-%m-%d_%H:%M:%S ') + line
-  #print node + ': ' + line[:-1]
-  print node + ': ' + line.rstrip("\n")
-  f = open(node, 'a')
-  if len(line)>0:
-    f.write(line)
-    #f.write(str(line[0]))
+### html update
+def html_update():
+  # requires global nodes and tstart variables!
+  html = """
+<!doctype html>
+<meta http-equiv="refresh" content="%(iter)s" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<!meta http-equiv="Location" content="/" />
+<meta name="author" content="Sven E. Templer" />
+<head>
+  <title>slurm monitor</title>
+  <link rel="shortcut icon" type="image/png" href="/favicon.png"/>
+  <style>
+    html { box-sizing: border-box; }
+    *,::before,::after { box-sizing: inherit; }
+    body { width: 96%%; font-family: sans-serif; color: #333333; margin: 15px; vertical-align: middle; }
+    header,nav,main { border-radius: 0.5em 0.5em 0.5em; border: 1px solid; margin: 5px; padding: 5px;
+      text-align: center; }
+    header { height: 90px; }
+    header img { height: 80px; width: 80px; float: right;
+      border:0px solid; -webkit-border-radius: 20px; -moz-border-radius: 20px; border-radius: 20px; }
+    main img { height: 160px; width: 300px; margin: 5px; }
+    nav { float: left; width: 200px; background: #fffbf0; border-color: #e7c157; margin-top: 0px; }
+    nav li { list-style: circle; margin: 5px; text-align: left; }
+    main { display: block; background: #c4ced3; border-color: #8a9da8; margin-left: 210px; margin-top: 5px; }
+  </style>
+</head>
+<body>
+<header>
+  <img src="avatar.png">
+  <h1>slurm monitor</h1>
+</header>
+<nav>
+  <h2>Monitoring</h2>
+  <ul>
+  <li>Stats:</br>3|1 sec|counts</li>
+  <li>Cycle:</br>30 sec</li>
+  <li>Started:</br>%(zero)s</li>
+  <li>Refreshed:</br>%(current)s</br>(%(iter)s sec auto)</li>
+  <li>Slurm queue:</br>%(queue)s (run/pend)</li>
+  </ul>
+  <h2>Values</h2>
+  <ul>
+  <li><font color="#0080FF">CPU</font></li>
+  <li><font color="#FFBF00">RAM</font></li>
+  <li><font color="#DF0101">Swap</font></li>
+  </ul>
+</nav>
+<main>
+  <h2>Load</h2>
+  %(imgs)s
+</main>
+</body>
+</html>"""
+  f = open('index.html', 'w')
+  queue = get_slurmqueue()
+  tnow = time.strftime('%Y-%m-%d %H:%M:%S')
+  imgs = [ '<img src="' + node + '.svg" alt="' + node + '">' for node in nodes ]
+  imgs = '\n'.join(imgs)
+  f.write(html % { 'iter' : 60, 'zero' : tstart, 
+    'current' : tnow, 'queue' : queue, 'imgs' : imgs })
   f.close()
 
+### http handler with custom index.html
+# extended default do_GET from SimpleHTTPRequestHandler
+# to create 'index.html' file with custom variable values inserted:
+def handler_get_method(self):
+  g_plotrange = urlparse.parse_qs(
+      urlparse.urlparse(self.path).query).get('r', 60)
+  html_update()
+  f = self.send_head()
+  if f:
+    try:
+      self.copyfile(f, self.wfile)
+    finally:
+      f.close()
+
+### get http handler
+def handler():
+  h = SimpleHTTPServer.SimpleHTTPRequestHandler
+  h.do_GET = handler_get_method
+  h.extensions_map['.svg']='image/svg+xml'
+  return h
+
+### get slurm queue
 def get_slurmqueue ():
   cmd = [ 'squeue', '-o', '%T' ]
   try:
@@ -202,29 +139,39 @@ def get_slurmqueue ():
   nrun  = len([i for i in jobs if i == "RUNNING"])
   return str(nrun) + '/' + str(npend)
 
+### daemon stats
+def rund_stats(home, nodes, sleep, user):
+  script = """
+cd %(home)s
+while true
+do
+  line="$(date +%%Y-%%m-%%d_%%H:%%M:%%S) "
+  line+="$(mpstat %(interval)s 1 | awk '$2=="all" && $1!="Average:" {print $3}') "
+  line+="$(free | awk '/^Mem/{ mem=$3/$2*100 } /^Swap/{ swp=$3/$2*100 } END { print mem " " swp }')"
+  echo "$line" >> %(node)s.stat
+  sed -i -e :a -e '$q;N;%(length)s,$D;ba' %(node)s.stat
+  sleep %(sleep)s
+done""" 
+  for node in nodes:
+    f = open(home + node + '.sh', 'w')
+    f.write(script % { 'home' : home, 'interval' : args.interval, 'node' : node, 'sleep' : args.sleep, 'length' : args.length })
+    f.close()
+    cmd = 'ssh ' + user + '@' + node + ' bash ' + home + node + '.sh'
+    proc = subprocess.Popen(cmd, shell = True)
 
-# strip load data file
-def get_load_stripped(node):
-  cmd = [ 'sed', '-i', '-e :a', "-e", '$q;N;50,$D;ba', node ]
-  subprocess.Popen(cmd)
-
-
-
-# function to generate an image
-def get_img(node):
-  ft = g_swd + '/' + node
-  d = csv.reader(open(ft), delimiter = ' ')
+### generate plot
+def plot_load(home, node):
+  d = csv.reader(open(home + node + '.stat'), delimiter = ' ')
   dt = [] # time
-  dl = [] # cpu load
+  dc = [] # cpu load
   dm = [] # mem load
   ds = [] # swap load
   for row in d:
     dt.append(datetime.datetime.strptime(row[0], '%Y-%m-%d_%H:%M:%S'))
-    dl.append(float(row[1]))
+    dc.append(float(row[1]))
     dm.append(float(row[2]))
     ds.append(float(row[3]))
-  i0 = len
-
+  #i0 = len
   dx = range(len(dt))
   fig, ax = pp.subplots(1)
   fig.set_size_inches(12, 6) # x=4.8 y=1.6
@@ -232,108 +179,91 @@ def get_img(node):
   ax.set_title(node)
   ax.set_ylabel('[%]')
   ax.set_xlabel('Time')
-  ax.fill_between(dt, float(0), dl, facecolor='blue', alpha='.6')
+  ax.fill_between(dt, float(0), dc, facecolor='blue', alpha='.6')
   ax.plot(dt,dm,color='orange', lw = 5)
   ax.plot(dt,ds,color='red', lw = 3)
   fig.autofmt_xdate(rotation=25)
   ax.xaxis.set_major_formatter(dates.DateFormatter('%H:%M:%S'))
-  #fig.savefig(ft + '.png', dpi=300, format='png')
-  fig.savefig(ft + '.svg', format='svg')
+  fig.savefig(node + '.svg', format='svg') # dpi = 300
   pp.close()
 
-
-# function to query all nodes and prepare data (tables and images)
-def get_daemon():
-  print('Started collecting data for nodes:')
-  print(', '.join(g_nodes))
+### daemon plots
+def rund_plots(home, nodes, sleep):
   while 1:
-    if not os.path.exists(g_swd):
-      print('Stopped collecting data')
-      quit()
-    for node in g_nodes:
-      get_load(node)
-      get_load_stripped(node)
+    for node in nodes:
+      if not os.path.isfile(home + node + '.stat'):
+        continue
       time.sleep(.5)
-      get_img(node)
-    time.sleep(g_sleep)
+      plot_load(home, node)
+    time.sleep(sleep)
 
-
-# function to update the html template
-def html_update():
-  f = open('index.html', 'w')
-  q = get_slurmqueue()
-  t = time.strftime('%Y-%m-%d %H:%M:%S')
-  n = [ '<img src="' + i + '.svg" alt="' + i + '">' for i in g_nodes ]
-  n = '\n'.join(n)
-  f.write(g_html % { 
-    'iter' : g_html_iter, 'zero' : g_html_t0, 'current' : t, 
-    'queue' : q, 'imgnodes' : n })
-  f.close()
-  
-
-# extended default do_GET from SimpleHTTPRequestHandler
-# to create 'index.html' file with custom variable values inserted:
-def handler_do_GET(self):
-  g_plotrange = urlparse.parse_qs(
-      urlparse.urlparse(self.path).query).get('r', 60)
-  html_update()
-  f = self.send_head()
-  if f:
-    try:
-      self.copyfile(f, self.wfile)
-    finally:
-      f.close()
-
-
-# run
+### check tmp dir tree
+def create_home(home):
+  pwd = os.getcwd()
+  try:
+    shutil.rmtree(home)
+  except:
+    print('warning: could not remove server directory ' + home)
+  try:
+    os.makedirs(home)
+  except:
+    print('error: could not create working directory ' + home)
+    quit()
+  shutil.copy(pwd + '/favicon.png', home) 
+  shutil.copy(pwd + '/avatar.png', home) 
+  try:
+    os.chdir(home)
+    print('changed to working directory ' + home)
+  except:
+    print('error: could not change to working directory ' + home)
+    quit()
+ 
+### run
 if __name__ == '__main__':
-  # define http server and subprocess
-  handler = SimpleHTTPServer.SimpleHTTPRequestHandler
-  handler.do_GET = handler_do_GET
-  handler.extensions_map['.svg']='image/svg+xml'
+  parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser.add_argument('-n', '--nodes', help='host names to query', default = 'cluster,bioinf-blc-12,bioinf-blc-14,bioinf-blc-16')
+  parser.add_argument('-s', '--sleep', help='sleep time between queries', default = 60)
+  parser.add_argument('-i', '--interval', help='stats query interval', default = 3)
+  parser.add_argument('-l', '--length', help='number of timepoints/queries to plot', default = 30)
+  parser.add_argument('-p', '--port', help='http server port', default = 8910)
+  parser.add_argument('-d', '--home-directory', help='shared directory', dest = 'home', default = '~/.slurmon')
+  parser.add_argument('-u', '--user', help='ssh user, default is current')
+  args = parser.parse_args()
+  pid = os.getpid()
+  args.home += '/' + str(pid) + '/' 
+  args.home = os.path.expanduser(args.home)
+  nodes = args.nodes.split(',')
+  host = os.uname()[1]
+  if args.user is None:
+    args.user = os.getenv('USER')
+  handler = handler()
   subprocess.check_output = subprocess_check_output
-  # create selected working directory
-  try:
-    shutil.rmtree(g_swd)
-  except:
-    print('Warning: could not remove server directory ' + g_swd)
-  try:
-    os.makedirs(g_swd)
-  except:
-    print('Error: could not create working directory ' + g_swd)
-    quit()
-  shutil.copy(g_pwd + '/slurmOnitor-favicon.png', g_swd) 
-  shutil.copy(g_pwd + '/slurmOnitor-avatar.png', g_swd) 
-  try:
-    os.chdir(g_swd)
-    print('Changed to working directory ' + g_swd)
-  except:
-    print('Error: could not change to working directory ' + g_swd)
-    quit()
-  # write load query script
-  f = open('slurmOnitor-stats', 'w')
-  f.write(g_bash)
-  f.close()
-  # start httpd daemon
-  #daemon = threading.Thread(target = get_daemon, args = [g_nodes, g_sshid, g_slurm])
-  daemon = threading.Thread(target = get_daemon)
-  daemon.start()
-  httpd = BaseHTTPServer.HTTPServer((g_hostname, g_hostport), handler)
-  print "Starting webserver at %s:%s" % (g_hostname, g_hostport), 'at', time.asctime()
+  print('creating home ...')
+  create_home(args.home)
+  print('collecting stats ...')
+  daemon_stats = threading.Thread(target = rund_stats, args = [args.home, nodes, args.sleep, args.user])
+  daemon_stats.daemon = True
+  daemon_stats.start()
+  daemon_plots = threading.Thread(target = rund_plots, args = [args.home, nodes, args.sleep])
+  daemon_plots.daemon = True
+  daemon_plots.start()
+  httpd = BaseHTTPServer.HTTPServer((host, args.port), handler)
+  tstart = time.strftime('%Y-%m-%d %H:%M:%S')
+  print('starting webserver at %s:%s at ' % (host, args.port) + tstart) #ime.asctime()
   try:
     httpd.serve_forever()
   except KeyboardInterrupt:
     pass
-  # close server and remove working directory
   httpd.server_close()
-  print "Stopped webserver %s:%s" % (g_hostname, g_hostport), 'at', time.asctime()
+  print "stopped webserver %s:%s" % (host, args.port), 'at', time.asctime()
   try:
-    shutil.rmtree(g_swd)
+    shutil.rmtree(args.home)
   except:
-    print('Warning: could not remove server directory ' + g_swd)
+    print('warning: could not remove server directory ' + args.home)
   try:
     os.remove('index.html')
   except:
-    print('Warning: could not remove index.html')
+    print('warning: could not remove index.html')
+    quit()
 
 ### EOF
