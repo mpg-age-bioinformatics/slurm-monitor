@@ -67,6 +67,8 @@ def html_update():
     nav { float: left; width: 200px; background: #fffbf0; border-color: #e7c157; margin-top: 0px; }
     nav li { list-style: circle; margin: 5px; text-align: left; }
     main { display: block; background: #c4ced3; border-color: #8a9da8; margin-left: 210px; margin-top: 5px; }
+    table { width: 100%%; font-family: "Courier", Courier, monospace; }
+    tr { text-align: left; } 
   </style>
 </head>
 <body>
@@ -92,17 +94,19 @@ def html_update():
 </nav>
 <main>
   <h2>Load</h2>
-  %(imgs)s
+  <p>%(load)s</p>
+  <p>%(imgs)s</p>
 </main>
 </body>
 </html>"""
   f = open('index.html', 'w')
   queue = get_slurmqueue()
+  load = get_slurmload()
   tnow = time.strftime('%Y-%m-%d %H:%M:%S')
   imgs = [ '<img src="' + node + '.svg" alt="' + node + '">' for node in nodes ]
   imgs = '\n'.join(imgs)
   f.write(html % { 'iter' : 60, 'zero' : tstart, 
-    'current' : tnow, 'queue' : queue, 'imgs' : imgs })
+    'current' : tnow, 'queue' : queue, 'load' : load, 'imgs' : imgs })
   f.close()
 
 ### http handler with custom index.html
@@ -138,6 +142,26 @@ def get_slurmqueue ():
   npend = len([i for i in jobs if i == "PENDING"])
   nrun  = len([i for i in jobs if i == "RUNNING"])
   return str(nrun) + '/' + str(npend)
+
+def get_slurmload ():
+  try:
+    load1 = subprocess.Popen(['sinfo', '-o', '%20n %10P %10T %15C %.7m'], stdout = subprocess.PIPE)
+    #load2 = subprocess.Popen(['tail', '-n', '+2'], stdin = load1.stdout, stdout = subprocess.PIPE)
+    load3 = subprocess.Popen(['awk', '{split($4,a,"/"); $4=a[1]"/"a[4]; if ($5 ~ /^[0-9]+/ ) {$5=int($5/1024)"GB"}; print }'], stdin = load1.stdout, stdout = subprocess.PIPE)
+    load4 = subprocess.Popen(['sort'], stdin = load3.stdout, stdout = subprocess.PIPE)
+    load, err = load4.communicate()
+  except:
+    load = [ 'NA' ]
+    pass
+  load = load.split('\n')
+  load = [ i.split(' ') for i in load if len(i) > 0 ]
+  loadstring = '<table style>\n'
+  for i in load:
+    loadstring += '<tr>\n<td>'
+    loadstring += '</td>\n<td>'.join(i)
+    loadstring += '</td>\n</tr>\n'
+  loadstring += '</table>'
+  return loadstring
 
 ### daemon stats
 def rund_stats(home, nodes, sleep, user):
