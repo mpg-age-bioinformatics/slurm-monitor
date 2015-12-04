@@ -67,7 +67,7 @@ def html_update():
     nav { float: left; width: 200px; background: #fffbf0; border-color: #e7c157; margin-top: 0px; }
     nav li { list-style: circle; margin: 5px; text-align: left; }
     main { display: block; background: #c4ced3; border-color: #8a9da8; margin-left: 210px; margin-top: 5px; }
-    table { width: 100%%; font-family: "Courier", Courier, monospace; }
+    table { width: 90%%; font-family: "Courier", Courier, monospace; }
     tr { text-align: left; } 
   </style>
 </head>
