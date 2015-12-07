@@ -59,7 +59,7 @@ def html_update():
     *,::before,::after { box-sizing: inherit; }
     body { width: 96%%; font-family: sans-serif; color: #333333; margin: 15px; vertical-align: middle; }
     header,nav,main { border-radius: 0.5em 0.5em 0.5em; border: 1px solid; margin: 5px; padding: 5px;
-      text-align: center; }
+      text-align: center; font-family: "Courier", Courier, monospace; }
     header { height: 90px; }
     header img { height: 80px; width: 80px; float: right;
       border:0px solid; -webkit-border-radius: 20px; -moz-border-radius: 20px; border-radius: 20px; }
@@ -67,7 +67,7 @@ def html_update():
     nav { float: left; width: 200px; background: #fffbf0; border-color: #e7c157; margin-top: 0px; }
     nav li { list-style: circle; margin: 5px; text-align: left; }
     main { display: block; background: #c4ced3; border-color: #8a9da8; margin-left: 210px; margin-top: 5px; }
-    table { width: 90%%; font-family: "Courier", Courier, monospace; }
+    table { width:80%%; margin-left:auto; margin-right:auto; }
     tr { text-align: left; } 
   </style>
 </head>
@@ -79,13 +79,11 @@ def html_update():
 <nav>
   <h2>Monitoring</h2>
   <ul>
-  <li>Stats:</br>3|1 sec|counts</li>
-  <li>Cycle:</br>30 sec</li>
   <li>Started:</br>%(zero)s</li>
   <li>Refreshed:</br>%(current)s</br>(%(iter)s sec auto)</li>
-  <li>Slurm queue:</br>%(queue)s (run/pend)</li>
+  <li>Slurm queue</br>(run/pend)</br>%(queue)s</li>
   </ul>
-  <h2>Values</h2>
+  <h2>Load legend</h2>
   <ul>
   <li><font color="#0080FF">CPU</font></li>
   <li><font color="#FFBF00">RAM</font></li>
@@ -93,8 +91,9 @@ def html_update():
   </ul>
 </nav>
 <main>
-  <h2>Load</h2>
+  <h2>Slurm Allocation</h2>
   <p>%(load)s</p>
+  <h2>Load</h2>
   <p>%(imgs)s</p>
 </main>
 </body>
