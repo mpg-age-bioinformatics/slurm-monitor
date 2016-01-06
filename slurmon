@@ -150,7 +150,7 @@ def html_update():
       <a href="#tab3">Jobs</a>
       <div>
         <h2>Slurm Jobs</h2>
-        <p>job list (to be implemented) ...</p>
+        <p>%(jobs)s</p>
       </div>
     </div>
 
@@ -162,11 +162,12 @@ def html_update():
   f = open('index.html', 'w')
   queue = get_slurmqueue()
   load = get_slurmload()
+  jobs = get_slurmqueue_table()
   tnow = time.strftime('%Y-%m-%d %H:%M:%S')
   imgs = [ '<img src="' + node + '.svg" alt="' + node + '">' for node in nodes ]
   imgs = '\n'.join(imgs)
   f.write(html % { 'iter' : 60, 'zero' : tstart, 
-    'current' : tnow, 'queue' : queue, 'load' : load, 'imgs' : imgs })
+    'current' : tnow, 'queue' : queue, 'load' : load, 'imgs' : imgs, 'jobs' : jobs })
   f.close()
 
 ### http handler with custom index.html
@@ -196,31 +197,51 @@ def get_slurmqueue ():
   try:
     jobs = subprocess.check_output(cmd, stderr = subprocess.STDOUT, timeout = 3)
   except:
-    jobs = ['STATE\n']
+    jobs = 'STATE\n'
     pass
   jobs = jobs.split('\n')
   npend = len([i for i in jobs if i == "PENDING"])
   nrun  = len([i for i in jobs if i == "RUNNING"])
   return str(nrun) + '/' + str(npend)
 
+def as_html_table (x):
+  x = x.split('\n')
+  x = [ i.split(' ') for i in x if len(i) > 0 ]
+  tab = '<table style>\n'
+  for i in x:
+    tab += '<tr>\n<td>'
+    tab += '</td>\n<td>'.join(i)
+    tab += '</td>\n</tr>\n'
+  tab += '</table>'
+  return tab
+
+def get_slurmqueue_table ():
+  try:
+    jobs1 = subprocess.Popen(['squeue', "--sort=-T,-M", '-o', "%.7i %9P %25j %8u %.8T %.12M %.6C %18R"], 
+    #jobs1 = subprocess.Popen(['squeue'], 
+        stdout = subprocess.PIPE)
+    jobs2 = subprocess.Popen(['sed', '-e', 's|^\ \+||', '-e', 's|\ \+|\ |g'],
+        stdin = jobs1.stdout, stdout = subprocess.PIPE)
+    jobs, err = jobs2.communicate()
+  except:
+    jobs = 'NA'
+    pass
+  queuestring = as_html_table(jobs)
+  return queuestring
+
 def get_slurmload ():
   try:
-    load1 = subprocess.Popen(['sinfo', '-o', '%20n %10P %10T %15C %.7m'], stdout = subprocess.PIPE)
+    load1 = subprocess.Popen(['sinfo', '-o', '%20n %10P %10T %15C %.7m'], 
+        stdout = subprocess.PIPE)
     #load2 = subprocess.Popen(['tail', '-n', '+2'], stdin = load1.stdout, stdout = subprocess.PIPE)
-    load3 = subprocess.Popen(['awk', '{split($4,a,"/"); $4=a[1]"/"a[4]; if ($5 ~ /^[0-9]+/ ) {$5=int($5/1024)"GB"}; print }'], stdin = load1.stdout, stdout = subprocess.PIPE)
+    load3 = subprocess.Popen(['awk', '{split($4,a,"/"); $4=a[1]"/"a[4]; if ($5 ~ /^[0-9]+/ ) {$5=int($5/1024)"GB"}; print }'], 
+        stdin = load1.stdout, stdout = subprocess.PIPE)
     load4 = subprocess.Popen(['sort'], stdin = load3.stdout, stdout = subprocess.PIPE)
     load, err = load4.communicate()
   except:
-    load = [ 'NA' ]
+    load = 'NA'
     pass
-  load = load.split('\n')
-  load = [ i.split(' ') for i in load if len(i) > 0 ]
-  loadstring = '<table style>\n'
-  for i in load:
-    loadstring += '<tr>\n<td>'
-    loadstring += '</td>\n<td>'.join(i)
-    loadstring += '</td>\n</tr>\n'
-  loadstring += '</table>'
+  loadstring = as_html_table(load)
   return loadstring
 
 ### daemon stats
