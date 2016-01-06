@@ -64,10 +64,10 @@ def html_update():
     header img { height: 80px; width: 80px; float: right;
       border:0px solid; -webkit-border-radius: 20px; -moz-border-radius: 20px; border-radius: 20px; }
     main img { height: 160px; width: 300px; margin: 5px; }
-    nav { float: left; width: 200px; background: #fffbf0; border-color: #e7c157; margin-top: 0px; }
+    nav { float: left; width: 150px; background: #fffbf0; border-color: #e7c157; margin-top: 0px; }
     nav li { list-style: circle; margin: 5px; text-align: left; }
-    main { display: block; background: #c4ced3; border-color: #8a9da8; margin-left: 210px; margin-top: 5px; }
-    table { width:80%%; margin-left:auto; margin-right:auto; }
+    main { display: block; background: #c4ced3; border-color: #8a9da8; margin-top: 5px; }
+    table { width:95%%; margin-left:auto; margin-right:auto; }
     tr { text-align: left; } 
 
     div.tabs {
@@ -112,21 +112,22 @@ def html_update():
   <img src="avatar.png">
   <h1>slurm monitor</h1>
 </header>
-<nav>
-  <h2>Monitoring</h2>
+<!-- <nav>
+  <h2>Update</h2>
   <ul>
   <li>Started:</br>%(zero)s</li>
   <li>Refreshed:</br>%(current)s</br>(%(iter)s sec auto)</li>
   <li>Slurm queue</br>(run/pend)</br>%(queue)s</li>
   </ul>
-  <h2>Load legend</h2>
+  <h2>Legend</h2>
   <ul>
   <li><font color="#0080FF">CPU</font></li>
   <li><font color="#FFBF00">RAM</font></li>
   <li><font color="#DF0101">Swap</font></li>
   </ul>
-</nav>
+</nav> -->
 <main>
+  Started %(zero)s / Updated %(current)s
   <div class=tabs>
 
     <div id=tab1>
@@ -150,6 +151,7 @@ def html_update():
       <a href="#tab3">Jobs</a>
       <div>
         <h2>Slurm Jobs</h2>
+        <p>run/pend: %(queue)s</p>
         <p>%(jobs)s</p>
       </div>
     </div>
@@ -217,7 +219,7 @@ def as_html_table (x):
 
 def get_slurmqueue_table ():
   try:
-    jobs1 = subprocess.Popen(['squeue', "--sort=-T,-M", '-o', "%.7i %9P %25j %8u %.8T %.12M %.6C %18R"], 
+    jobs1 = subprocess.Popen(['squeue', "--sort=-T,-M", '-o', "%.7i %9P %12j %8u %.5T %.11M %.6C %18R"], 
     #jobs1 = subprocess.Popen(['squeue'], 
         stdout = subprocess.PIPE)
     jobs2 = subprocess.Popen(['sed', '-e', 's|^\ \+||', '-e', 's|\ \+|\ |g'],
