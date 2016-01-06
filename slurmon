@@ -69,6 +69,42 @@ def html_update():
     main { display: block; background: #c4ced3; border-color: #8a9da8; margin-left: 210px; margin-top: 5px; }
     table { width:80%%; margin-left:auto; margin-right:auto; }
     tr { text-align: left; } 
+
+    div.tabs {
+      min-height: 100em; 
+      margin: 10px;
+      position: relative; 
+      line-height: 1; 
+      z-index: 0}  
+    div.tabs > div {
+      display: inline} 
+    div.tabs > div > a {
+      color: black; 
+      background: #CCC;
+      padding: 0.2em;
+      border: 0.1em outset #BBB;
+      border-bottom: 0.1em solid #CCC}
+    div.tabs > div:not(:target) > a {
+      border-bottom: none;
+      background: #999}
+    div.tabs > div:target > a, :target #tab3 > a {
+      border-bottom: 0.1em solid #CCC;
+      background: #CCC}
+    div.tabs > div > div {
+      background: #CCC;
+      z-index: -2;
+      left: 0; top: 1.3em;
+      bottom: 0; right: 0;
+      overflow: auto;
+      padding: 0.3em;
+      border: 0.1em}
+    div.tabs > div:not(:target) > div {
+      position: absolute }
+    div.tabs > div:target > div, :target #tab3 > div {
+      position: absolute;
+      z-index: -1}
+    div.tabs :target {
+      outline: none}
   </style>
 </head>
 <body>
@@ -91,10 +127,35 @@ def html_update():
   </ul>
 </nav>
 <main>
-  <h2>Slurm Allocation</h2>
-  <p>%(load)s</p>
-  <h2>Load</h2>
-  <p>%(imgs)s</p>
+  <div class=tabs>
+
+    <div id=tab1>
+      <a href="#tab1">Load</a> 
+      <div>
+        <h2>Nodes Load</h2>
+        <p>%(imgs)s</p>
+      </div>
+    </div>
+
+
+    <div id=tab2>
+      <a href="#tab2">Allocation</a>
+      <div>
+        <h2>Slurm Allocation</h2>
+        <p>%(load)s</p>
+      </div>
+    </div>
+
+    <div id=tab3>
+      <a href="#tab3">Jobs</a>
+      <div>
+        <h2>Slurm Jobs</h2>
+        <p>job list (to be implemented) ...</p>
+      </div>
+    </div>
+
+
+  </div>
 </main>
 </body>
 </html>"""
