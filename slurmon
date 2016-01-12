@@ -43,7 +43,7 @@ def subprocess_check_output(*popenargs, **kwargs):
     return output
 
 ### html update
-def html_update():
+def write_html_index():
   # requires global nodes and tstart variables!
   html = """
 <!doctype html>
@@ -53,7 +53,7 @@ def html_update():
 <meta name="author" content="Sven E. Templer" />
 <head>
   <title>slurm monitor</title>
-  <link rel="shortcut icon" type="image/png" href="/favicon.png"/>
+  <link rel="shortcut icon" type="image/png" href="favicon.png"/>
   <style>
     html { box-sizing: border-box; }
     *,::before,::after { box-sizing: inherit; }
@@ -127,12 +127,12 @@ def html_update():
   </ul>
 </nav> -->
 <main>
-  Started %(zero)s / Updated %(current)s
   <div class=tabs>
 
     <div id=tab1>
       <a href="#tab1">Load</a> 
       <div>
+        <p>monitoring started at %(zero)s / updated at %(current)s</p>
         <h2>Nodes Load</h2>
         <p>%(imgs)s</p>
       </div>
@@ -142,6 +142,7 @@ def html_update():
     <div id=tab2>
       <a href="#tab2">Allocation</a>
       <div>
+        <p>monitoring started at %(zero)s / updated at %(current)s</p>
         <h2>Slurm Allocation</h2>
         <p>%(load)s</p>
       </div>
@@ -150,8 +151,9 @@ def html_update():
     <div id=tab3>
       <a href="#tab3">Jobs</a>
       <div>
+        <p>monitoring started at %(zero)s / updated at %(current)s</p>
         <h2>Slurm Jobs</h2>
-        <p>run/pend: %(queue)s</p>
+        <p>jobs running/pending: %(queue)s</p>
         <p>%(jobs)s</p>
       </div>
     </div>
@@ -161,13 +163,13 @@ def html_update():
 </main>
 </body>
 </html>"""
-  f = open('index.html', 'w')
   queue = get_slurmqueue()
   load = get_slurmload()
   jobs = get_slurmqueue_table()
   tnow = time.strftime('%Y-%m-%d %H:%M:%S')
-  imgs = [ '<img src="' + node + '.svg" alt="' + node + '">' for node in nodes ]
+  imgs = [ '<img src="svg/' + node + '.svg" alt="' + node + '">' for node in nodes ]
   imgs = '\n'.join(imgs)
+  f = open('index.html', 'w')
   f.write(html % { 'iter' : 60, 'zero' : tstart, 
     'current' : tnow, 'queue' : queue, 'load' : load, 'imgs' : imgs, 'jobs' : jobs })
   f.close()
@@ -178,7 +180,7 @@ def html_update():
 def handler_get_method(self):
   g_plotrange = urlparse.parse_qs(
       urlparse.urlparse(self.path).query).get('r', 60)
-  html_update()
+  write_html_index()
   f = self.send_head()
   if f:
     try:
@@ -255,20 +257,20 @@ do
   line="$(date +%%Y-%%m-%%d_%%H:%%M:%%S) "
   line+="$(mpstat %(interval)s 1 | awk '$2=="all" && $1!="Average:" {print $3}') "
   line+="$(free | awk '/^Mem/{ mem=$3/$2*100 } /^Swap/{ swp=$3/$2*100 } END { print mem " " swp }')"
-  echo "$line" >> %(node)s.stat
-  sed -i -e :a -e '$q;N;%(length)s,$D;ba' %(node)s.stat
+  echo "$line" >> stat/%(node)s
+  sed -i -e :a -e '$q;N;%(length)s,$D;ba' stat/%(node)s
   sleep %(sleep)s
 done""" 
   for node in nodes:
-    f = open(home + node + '.sh', 'w')
+    f = open(home + '/sh/' +node, 'w')
     f.write(script % { 'home' : home, 'interval' : args.interval, 'node' : node, 'sleep' : args.sleep, 'length' : args.length })
     f.close()
-    cmd = 'ssh ' + user + '@' + node + ' bash ' + home + node + '.sh'
+    cmd = 'ssh ' + user + '@' + node + ' bash ' + home + '/sh/' + node
     proc = subprocess.Popen(cmd, shell = True)
 
 ### generate plot
 def plot_load(home, node):
-  d = csv.reader(open(home + node + '.stat'), delimiter = ' ')
+  d = csv.reader(open(home + '/stat/' + node), delimiter = ' ')
   dt = [] # time
   dc = [] # cpu load
   dm = [] # mem load
@@ -291,18 +293,71 @@ def plot_load(home, node):
   ax.plot(dt,ds,color='red', lw = 3)
   fig.autofmt_xdate(rotation=25)
   ax.xaxis.set_major_formatter(dates.DateFormatter('%H:%M:%S'))
-  fig.savefig(node + '.svg', format='svg') # dpi = 300
+  fig.savefig('svg/' + node + '.svg', format='svg') # dpi = 300
   pp.close()
 
 ### daemon plots
 def rund_plots(home, nodes, sleep):
   while 1:
     for node in nodes:
-      if not os.path.isfile(home + node + '.stat'):
+      if not os.path.isfile(home + '/stat/' + node):
         continue
       time.sleep(.5)
       plot_load(home, node)
     time.sleep(sleep)
+
+### write nginx.config
+def write_nginx_conf (home, port, host):
+  cfg = """
+# nginx -c /path/to/this/slurmon.nginx.conf
+error_log %(home)s/error.log;
+pid %(home)s/nginx.pid;
+worker_processes 1;
+events {
+  worker_connections 1024;
+}
+http {
+  client_body_temp_path %(home)s/client_body;
+  fastcgi_temp_path %(home)s/fastcgi_temp;
+  proxy_temp_path %(home)s/proxy_temp;
+  scgi_temp_path %(home)s/scgi_temp;
+  uwsgi_temp_path %(home)s/uwsgi_temp;
+  tcp_nopush on;
+  tcp_nodelay on;
+  keepalive_timeout 65;
+  types_hash_max_size 2048;
+  include /etc/nginx/mime.types;
+  index index.html;
+  log_format   main '$remote_addr - $remote_user [$time_local] $status '
+    '"$request" $body_bytes_sent "$http_referer" '
+    '"$http_user_agent" "$http_x_forwarded_for"';
+  default_type application/octet-stream;
+  server {
+    listen %(host)s:%(port)s;
+    access_log %(home)s/access.log;
+    error_log %(home)s/error.log;
+    root %(home)s/;
+    index index.html;
+    sendfile on;
+    location / { deny all; }
+    location = / { }
+    location = /index.html { }
+    location = /favicon.png { }
+    location = /avatar.png { }
+    location /svg { allow all; sendfile on; }
+  }
+}
+"""
+  f = open('nginx.conf', 'w')
+  f.write(cfg % { 'home' : home, 'port' : port, 'host' : host })
+  f.close()
+  
+### nginx thread
+def rund_nginx (home, port, host):
+  write_nginx_conf(home, port, host)
+  cmd = ['nginx', '-c', home + 'nginx.conf', '-p', home]
+  print('running nginx as: ' + ' '.join(cmd))
+  proc = subprocess.Popen(cmd)
 
 ### check tmp dir tree
 def create_home(home):
@@ -313,6 +368,9 @@ def create_home(home):
     print('warning: could not remove server directory ' + home)
   try:
     os.makedirs(home)
+    os.makedirs(home + '/svg')
+    os.makedirs(home + '/sh')
+    os.makedirs(home + '/stat')
   except:
     print('error: could not create working directory ' + home)
     quit()
@@ -328,18 +386,22 @@ def create_home(home):
 ### run
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument('-n', '--nodes', help='host names to query', default = 'cluster,bioinf-blc-12,bioinf-blc-14,bioinf-blc-16')
+  parser.add_argument('-n', '--nodes', help='host names to query', default = ['cluster'], nargs='+')
   parser.add_argument('-s', '--sleep', help='sleep time between queries', default = 60)
   parser.add_argument('-i', '--interval', help='stats query interval', default = 3)
   parser.add_argument('-l', '--length', help='number of timepoints/queries to plot', default = 30)
   parser.add_argument('-p', '--port', help='http server port', default = 8910)
   parser.add_argument('-d', '--home-directory', help='shared directory', dest = 'home', default = '~/.slurmon')
   parser.add_argument('-u', '--user', help='ssh user, default is current')
+  parser.add_argument('-x', '--nginx', help='run as nginx daemon', action = 'store_true')
   args = parser.parse_args()
   pid = os.getpid()
   args.home += '/' + str(pid) + '/' 
   args.home = os.path.expanduser(args.home)
-  nodes = args.nodes.split(',')
+  nodes = args.nodes
+  for n in nodes:
+    print('adding node:' + n)
+  #nodes = args.nodes.split(',')
   host = os.uname()[1]
   if args.user is None:
     args.user = os.getenv('USER')
@@ -347,22 +409,34 @@ if __name__ == '__main__':
   subprocess.check_output = subprocess_check_output
   print('creating home ...')
   create_home(args.home)
-  print('collecting stats ...')
+  print('starting statistics daemon ...')
   daemon_stats = threading.Thread(target = rund_stats, args = [args.home, nodes, args.sleep, args.user])
   daemon_stats.daemon = True
   daemon_stats.start()
+  print('starting plot daemon ...')
   daemon_plots = threading.Thread(target = rund_plots, args = [args.home, nodes, args.sleep])
   daemon_plots.daemon = True
   daemon_plots.start()
-  httpd = BaseHTTPServer.HTTPServer((host, args.port), handler)
   tstart = time.strftime('%Y-%m-%d %H:%M:%S')
-  print('starting webserver at %s:%s at ' % (host, args.port) + tstart) #ime.asctime()
-  try:
-    httpd.serve_forever()
-  except KeyboardInterrupt:
-    pass
-  httpd.server_close()
-  print "stopped webserver %s:%s" % (host, args.port), 'at', time.asctime()
+  print('starting webserver daemon (host:port = %s:%s) at ' % (host, args.port) + tstart) #time.asctime()
+  if args.nginx:
+    server_nginx = threading.Thread(target = rund_nginx, args = [args.home, args.port, host])
+    server_nginx.daemon = True
+    server_nginx.start()
+    try:
+      while True:
+        write_html_index()
+        time.sleep(10)
+    except KeyboardInterrupt:
+      pass
+  else:
+    server_base = BaseHTTPServer.HTTPServer((host, args.port), handler)
+    try:
+      server_base.serve_forever()
+    except KeyboardInterrupt:
+      pass
+    server_base.server_close()
+  print "stopping daemons ..."
   try:
     shutil.rmtree(args.home)
   except:
