@@ -387,9 +387,9 @@ def create_home(home):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   parser.add_argument('-n', '--nodes', help='host names to query', default = ['cluster'], nargs='+')
-  parser.add_argument('-s', '--sleep', help='sleep time between queries', default = 60)
-  parser.add_argument('-i', '--interval', help='stats query interval', default = 3)
-  parser.add_argument('-l', '--length', help='number of timepoints/queries to plot', default = 30)
+  parser.add_argument('-s', '--sleep', help='sleep time between queries (seconds)', default = 60)
+  parser.add_argument('-i', '--interval', help='mpstat query interval/length (seconds)', default = 3)
+  parser.add_argument('-l', '--length', help='number of timepoints/queries to plot (range = LENGHT * SLEEP)', default = 360)
   parser.add_argument('-p', '--port', help='http server port', default = 8910)
   parser.add_argument('-d', '--home-directory', help='shared directory', dest = 'home', default = '~/.slurmon')
   parser.add_argument('-u', '--user', help='ssh user, default is current')
