@@ -1,20 +1,30 @@
-# slurmOnitor
+# slurm-monitor
 
 ## About
 
-a slurm cluster load monitor
+An HPC cluster load monitor with slurm.
 
 ## Usage
 
-Check `slurm` variable (`False` for ssh queries). 
-Run `./slurmOnitor` to start.
-
-## Issues
-
-Issue when using module to change python path. Solved by the following:
-
-`export PYTHONUSERBASE="$HOME/.local"`
+For help see:
+```
+./slurmon --help
+```
 
 ## License
 
-> Copyright (c) Sven E. Templer 2015
+> Copyright (C) 2016 Sven E. Templer [sven.templer at gmail dot com]
+> 
+> This program is free software: you can redistribute it and/or modify
+> it under the terms of the GNU General Public License as published by
+> the Free Software Foundation, either version 3 of the License, or
+> (at your option) any later version.
+>
+> This program is distributed in the hope that it will be useful,
+> but WITHOUT ANY WARRANTY; without even the implied warranty of
+> MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+> GNU General Public License for more details.
+>
+> You should have received a copy of the GNU General Public License
+> along with this program. If not, see <http://www.gnu.org/licenses/>.
+
